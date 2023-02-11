@@ -1,22 +1,34 @@
 import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import { aws_logs as logs } from 'aws-cdk-lib';
-import { VpcResources } from './vpcResources';
-import { AuroraResources } from './AuroraResources';
-import { SecurityGroupResources } from './SecurityGroupResources';
-import { EcrResources } from './EcrResources';
+import { VpcConstruct } from './VpcConstruct';
+import { AuroraConstruct } from './AuroraConstruct';
+import { SecurityGroupConstruct } from './SecurityGroupConstruct';
+import { EcrConstruct } from './EcrConstruct';
 import { aws_ecs as ecs } from 'aws-cdk-lib';
 import { aws_iam as iam } from 'aws-cdk-lib';
 
-export class BastionEcsResources {
+
+
+export interface BastionEcsConstructProps {
+  vpcConstruct: VpcConstruct,
+  auroraConstruct: AuroraConstruct,
+  securityGroupConstruct: SecurityGroupConstruct,
+  ecrConstruct: EcrConstruct
+}
+
+
+
+export class BastionEcsConstruct extends Construct {
   public readonly bastionService: ecs.FargateService;
 
-  constructor(scope: Construct, vpcResources: VpcResources, securityGroupResources: SecurityGroupResources, ecrResources: EcrResources, auroraResources: AuroraResources) {
+  constructor(scope: Construct, id: string, props: BastionEcsConstructProps) {
+    super(scope, id);
 
     //--------------ECSクラスタ作成----------------
     // ECSクラスターを作成
     const bastionCluster = new ecs.Cluster(scope, 'BastionCluster', {
-      vpc: vpcResources.vpc,
+      vpc: props.vpcConstruct.vpc,
       containerInsights: false,
       clusterName: 'fargate-bastion-cluseter'
     })
@@ -31,7 +43,7 @@ export class BastionEcsResources {
     })
 
     // タスク実行ロールにDBのシークレットのread権限を付与
-    const dbSecrets = auroraResources.dbCluster.secret!;
+    const dbSecrets = props.auroraConstruct.dbCluster.secret!;
 
     // ログドライバーを作成
     const bastionLogging = new ecs.AwsLogDriver({
@@ -46,8 +58,8 @@ export class BastionEcsResources {
 
     // タスク定義にコンテナを追加
     bastionTaskDefinition.addContainer('BastionApp', {
-      containerName: ecrResources.bastionEcrRepository.repositoryName,
-      image: ecs.ContainerImage.fromEcrRepository(ecrResources.bastionEcrRepository, 'latest'),
+      containerName: props.ecrConstruct.bastionEcrRepository.repositoryName,
+      image: ecs.ContainerImage.fromEcrRepository(props.ecrConstruct.bastionEcrRepository, 'latest'),
       secrets: {
         'DB_HOST': ecs.Secret.fromSecretsManager(dbSecrets, 'host'),
         'DB_NAME': ecs.Secret.fromSecretsManager(dbSecrets, 'dbname'),
@@ -114,10 +126,10 @@ export class BastionEcsResources {
         type: ecs.DeploymentControllerType.ECS
       },
       circuitBreaker: { rollback: true },
-      securityGroups: [securityGroupResources.bastionSg],
+      securityGroups: [props.securityGroupConstruct.bastionSg],
       vpcSubnets: {
         subnets:
-          [vpcResources.subnetContainer1a, vpcResources.subnetContainer1c]
+          [props.vpcConstruct.subnetContainer1a, props.vpcConstruct.subnetContainer1c]
       },
     })
 

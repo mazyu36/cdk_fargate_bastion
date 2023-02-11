@@ -1,25 +1,29 @@
 import { Construct } from 'constructs';
 import { aws_ec2 as ec2 } from 'aws-cdk-lib';
 import { aws_rds as rds } from 'aws-cdk-lib';
-import { AuroraMysqlEngineVersion } from 'aws-cdk-lib/aws-rds';
 import { InstanceClass, InstanceSize } from 'aws-cdk-lib/aws-ec2';
 import * as cdk from 'aws-cdk-lib'
-import { VpcResources } from './vpcResources';
-import { SecurityGroupResources } from './SecurityGroupResources';
+import { VpcConstruct } from './vpcConstruct';
+import { SecurityGroupConstruct } from './SecurityGroupConstruct';
 
 
+export interface AuroraConstructProps {
+  vpcConstruct: VpcConstruct,
+  securityGroupConstruct: SecurityGroupConstruct,
+}
 
-export class AuroraResources {
+export class AuroraConstruct extends Construct {
 
   public readonly dbCluster: rds.DatabaseCluster;
-  constructor(scope: Construct, vpcResources: VpcResources, securityGroupResources: SecurityGroupResources) {
+  constructor(scope: Construct, id: string, props: AuroraConstructProps) {
+    super(scope, id);
 
     // DBサブネットグループを作成
     const dbSubnetGroup = new rds.SubnetGroup(scope, 'DBSubnetGroup', {
       description: 'DB Subnet Group for Aurora',
-      vpc: vpcResources.vpc,
+      vpc: props.vpcConstruct.vpc,
       vpcSubnets: {
-        subnets: [vpcResources.subnetDB1a, vpcResources.subnetDB1c],
+        subnets: [props.vpcConstruct.subnetDB1a, props.vpcConstruct.subnetDB1c],
       },
     });
 
@@ -27,7 +31,7 @@ export class AuroraResources {
     // DBクラスターを作成
     this.dbCluster = new rds.DatabaseCluster(scope, 'Database', {
       engine: rds.DatabaseClusterEngine.auroraMysql({
-        version: AuroraMysqlEngineVersion.VER_2_10_0
+        version: rds.AuroraMysqlEngineVersion.VER_2_10_0
       }),
       // credentialを自動生成。usernameのみadminを指定
       credentials: {
@@ -37,14 +41,14 @@ export class AuroraResources {
       instances: 1,
       parameterGroup: rds.ParameterGroup.fromParameterGroupName(scope, 'ClusterParameterGroup', 'default.aurora-mysql5.7'),
       instanceProps: {
-        vpc: vpcResources.vpc,
+        vpc: props.vpcConstruct.vpc,
         instanceType: ec2.InstanceType.of(InstanceClass.T3, InstanceSize.SMALL),
         publiclyAccessible: false,
         deleteAutomatedBackups: false,
-        securityGroups: [securityGroupResources.databaseSg],
+        securityGroups: [props.securityGroupConstruct.databaseSg],
         parameterGroup: rds.ParameterGroup.fromParameterGroupName(scope, 'ParameterGroup', 'default.aurora-mysql5.7'),
         vpcSubnets: {
-          subnets: [vpcResources.subnetDB1a, vpcResources.subnetDB1c],
+          subnets: [props.vpcConstruct.subnetDB1a, props.vpcConstruct.subnetDB1c],
         }
       },
       port: 3306,
@@ -56,6 +60,8 @@ export class AuroraResources {
       storageEncrypted: true,
       removalPolicy: cdk.RemovalPolicy.DESTROY
     })
+
+
 
   }
 }

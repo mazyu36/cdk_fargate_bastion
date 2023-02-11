@@ -1,4 +1,4 @@
-import { BastionEcsResources } from './BastionEcsResources';
+import { BastionEcsConstruct } from './BastionEcsConstruct';
 import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import { aws_iam as iam } from 'aws-cdk-lib';
@@ -8,16 +8,24 @@ import { aws_codecommit as codecommit } from 'aws-cdk-lib';
 import { aws_codebuild as codebuild } from 'aws-cdk-lib';
 import { aws_codepipeline as codepipeline } from 'aws-cdk-lib';
 import { aws_codepipeline_actions as codepipeline_actions } from 'aws-cdk-lib';
-import { EcrResources } from './EcrResources';
+import { EcrConstruct } from './EcrConstruct';
 import { getBuildSpecConfig } from './config/buildspecConfig';
 
 
-export class BastionCodePipelineResources {
+export interface BastionCodePipelineConstructProps {
+  ecrConstruct: EcrConstruct,
+  bastionEcsConstruct: BastionEcsConstruct
+}
 
-  constructor(scope: Construct, ecrResources: EcrResources, bastionEcsResources: BastionEcsResources) {
+export class BastionCodePipelineConstruct extends Construct {
+
+  constructor(scope: Construct, id: string, props: BastionCodePipelineConstructProps) {
+    super(scope, id);
 
     // KMSキーを作成
-    const bastionArtifactKey = new kms.Key(scope, 'BastionKmsKey')
+    const bastionArtifactKey = new kms.Key(scope, 'BastionKmsKey', {
+      removalPolicy: cdk.RemovalPolicy.DESTROY
+    })
 
     // Artifact用バケット作成
     const bastionArtifactBucket = new s3.Bucket(scope, 'BastionArtifactBucket', {
@@ -64,7 +72,7 @@ export class BastionCodePipelineResources {
 
 
     //--------------CodeBuild----------------
-    const buildSpecConfig = getBuildSpecConfig(ecrResources.bastionEcrRepository.repositoryName)
+    const buildSpecConfig = getBuildSpecConfig(props.ecrConstruct.bastionEcrRepository.repositoryName)
 
     const project = new codebuild.PipelineProject(scope, 'BastionBuildProject', {
       projectName: 'BastionBuildProject',
@@ -106,7 +114,7 @@ export class BastionCodePipelineResources {
     const deployAction = new codepipeline_actions.EcsDeployAction({
       actionName: 'Deploy_To_ECS',
       imageFile: buildOutput.atPath('imagedefinitions.json'),
-      service: bastionEcsResources.bastionService
+      service: props.bastionEcsConstruct.bastionService
     });
     deployStage.addAction(deployAction);
 

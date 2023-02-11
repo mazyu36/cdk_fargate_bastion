@@ -2,10 +2,16 @@ import { Construct } from 'constructs';
 import { aws_ecr as ecr } from 'aws-cdk-lib';
 import * as cdk from 'aws-cdk-lib';
 
-export class EcrResources {
+export interface EcrConstructProps {
+
+}
+
+export class EcrConstruct extends Construct {
   public readonly bastionEcrRepository: ecr.Repository;
 
-  constructor(scope: Construct,) {
+  constructor(scope: Construct, id: string, props: EcrConstructProps) {
+    super(scope, id);
+
     this.bastionEcrRepository = new ecr.Repository(scope, 'BastionEcrRepository', {
       repositoryName: 'fargate-bastion',
       imageScanOnPush: true,  // プッシュ時のイメージスキャンを有効化

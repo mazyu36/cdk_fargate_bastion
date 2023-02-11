@@ -2,7 +2,11 @@ import { Construct } from 'constructs';
 import { aws_ec2 as ec2 } from 'aws-cdk-lib';
 import * as cdk from 'aws-cdk-lib';
 
-export class VpcResources {
+
+export interface VpcConstructProps {
+
+}
+export class VpcConstruct extends Construct {
 
   public readonly vpc: ec2.Vpc;
   public readonly subnetContainer1a: ec2.PrivateSubnet;
@@ -12,7 +16,8 @@ export class VpcResources {
   public readonly subnetEgress1a: ec2.PrivateSubnet;
   public readonly subnetEgress1c: ec2.PrivateSubnet;
 
-  constructor(scope: Construct,) {
+  constructor(scope: Construct, id: string, props: VpcConstructProps) {
+    super(scope, id);
 
 
     // VPCを作成

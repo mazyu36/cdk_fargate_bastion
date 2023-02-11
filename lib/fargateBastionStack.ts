@@ -1,28 +1,30 @@
-import { AuroraResources } from './resources/AuroraResources';
+import { AthenaConstruct } from './constructs/AthenaConstruct';
+import { AuroraConstruct } from './constructs/AuroraConstruct';
 import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
-import { EcrResources } from './resources/EcrResources';
-import { SecurityGroupResources } from './resources/SecurityGroupResources';
-import { VpcResources } from './resources/vpcResources';
-import { BastionEcsResources } from './resources/BastionEcsResources';
-import { BastionCodePipelineResources } from './resources/BastionCodepipelineResources';
+import { EcrConstruct } from './constructs/EcrConstruct';
+import { SecurityGroupConstruct } from './constructs/SecurityGroupConstruct';
+import { VpcConstruct } from './constructs/vpcConstruct';
+import { BastionEcsConstruct } from './constructs/BastionEcsConstruct';
+import { BastionCodePipelineConstruct } from './constructs/BastionCodepipelineConstruct';
 
 export class CdkFargateBastionStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
 
-    const vpcResources = new VpcResources(this);
+    const vpcConstruct = new VpcConstruct(this, 'VpcConstruct', {});
 
-    const securityGroupResources = new SecurityGroupResources(this, vpcResources);
+    const securityGroupConstruct = new SecurityGroupConstruct(this, 'SecurityGroupConstruct', { vpcConstruct });
 
-    const ecrResources = new EcrResources(this);
+    const auroraConstruct = new AuroraConstruct(this, 'AuroraConstruct', { vpcConstruct, securityGroupConstruct });
 
+    new AthenaConstruct(this, 'AthenaConstruct', { vpcConstruct, securityGroupConstruct, auroraConstruct })
 
-    const auroraResources = new AuroraResources(this, vpcResources, securityGroupResources);
+    const ecrConstruct = new EcrConstruct(this, 'EcrConstruct', { vpcConstruct, securityGroupConstruct });
 
-    const bastionEcsResources = new BastionEcsResources(this, vpcResources, securityGroupResources, ecrResources, auroraResources)
+    const bastionEcsConstruct = new BastionEcsConstruct(this, 'BastionEcsConstruct', { vpcConstruct, securityGroupConstruct, ecrConstruct, auroraConstruct })
 
-    new BastionCodePipelineResources(this, ecrResources, bastionEcsResources)
+    new BastionCodePipelineConstruct(this, 'BastionCodePipelineConstruct', { ecrConstruct, bastionEcsConstruct })
   }
 }
